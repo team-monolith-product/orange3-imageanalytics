@@ -3,7 +3,7 @@ import importlib
 import numpy as np
 from Orange.data import Table, Instance
 from Orange.distance import Cosine
-from Orange.preprocess import Normalize
+from Orange.preprocess import Normalize, Preprocess
 from Orange.projection import MDS, PCA, TSNE
 from scipy.spatial.distance import cdist
 from scipy.stats import kurtosis
@@ -12,6 +12,11 @@ try:
     from lap import lapjv
 except ImportError:
     from scipy.optimize import linear_sum_assignment
+
+
+class AllColumnsRemovedError(RuntimeError):
+    """All data columns were removed by some preprocess step."""
+    pass
 
 
 class ImageGrid:
@@ -83,6 +88,17 @@ class ImageGrid:
             The data, reduced to 2 dimensions.
 
         """
+        assert data.domain.attributes
+
+        def preprocess_and_run(method: MDS | PCA | TSNE, data: Table):
+            preprocessors: list[Preprocess] = method.preprocessors
+            method.preprocessors = []
+            for p in preprocessors:
+                data = p(data)
+            if not data.domain.attributes:
+                raise AllColumnsRemovedError()
+            return method(data)
+
         if method == "MDS":
             if use_cosine:
                 mds = MDS(n_init=1, dissimilarity="precomputed")
@@ -90,15 +106,15 @@ class ImageGrid:
                 return mds(dist_matrix).embedding_
             else:
                 mds = MDS(n_init=1, init_type="PCA")
-                return mds(data).embedding_
+                return preprocess_and_run(mds, data).embedding_
 
         elif method == "PCA":
             pca = PCA(n_components=2)
-            return pca(data)(data)
+            return preprocess_and_run(pca, data)(data)
 
         elif method == "TSNE":
             tsne = TSNE(init="pca")
-            return tsne(data).embedding_
+            return preprocess_and_run(tsne, data).embedding_
 
     @staticmethod
     def _get_grid_size(data, use_default_square=False):
