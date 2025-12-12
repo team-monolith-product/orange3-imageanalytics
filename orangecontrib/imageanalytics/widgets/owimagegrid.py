@@ -341,7 +341,7 @@ class OWImageGrid(widget.OWWidget):
     def _update_data_is_subset(self):
         self.Warning.incompatible_subset.clear()
         self.Warning.extras_in_subset.clear()
-        if not (self.data and self.data_subset):
+        if self.data is None or self.data_subset is None:
             return None
 
         subset_ids = set(self.data_subset.ids)
