@@ -36,7 +36,7 @@ from Orange.widgets.utils.itemmodels import VariableListModel, DomainModel
 from Orange.widgets.utils.overlay import proxydoc
 from Orange.widgets.widget import Input, Output, OWWidget, Msg
 
-from orangecontrib.imageanalytics.image_grid import ImageGrid
+from orangecontrib.imageanalytics.image_grid import ImageGrid, AllColumnsRemovedError
 from orangecontrib.imageanalytics.utils.image_utils import (
     extract_image_path,
     filter_image_attributes,
@@ -221,8 +221,12 @@ class OWImageGrid(widget.OWWidget):
                 min(self.imageAttr, len(self.stringAttrs) - 1), 0)
 
             if self.is_valid_data():
-                self.image_grid = ImageGrid(data)
-                self.setup_scene()
+                try:
+                    self.image_grid = ImageGrid(data)
+                except AllColumnsRemovedError:
+                    self.Warning.no_valid_data()
+                else:
+                    self.setup_scene()
             else:
                 self.Warning.no_valid_data()
         self.commit.now()
@@ -337,7 +341,7 @@ class OWImageGrid(widget.OWWidget):
     def _update_data_is_subset(self):
         self.Warning.incompatible_subset.clear()
         self.Warning.extras_in_subset.clear()
-        if not (self.data and self.data_subset):
+        if self.data is None or self.data_subset is None:
             return None
 
         subset_ids = set(self.data_subset.ids)
