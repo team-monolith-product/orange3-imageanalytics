@@ -260,31 +260,23 @@ class OWImportImages(widget.OWWidget):
         if self.recent_paths:
             startdir = os.path.dirname(self.recent_paths[0].abspath)
 
-        if OWImportImages.Modality == Qt.WindowModal:
-            dlg = QFileDialog(
-                self, "Select Top Level Directory", startdir,
-                acceptMode=QFileDialog.AcceptOpen,
-                modal=True,
-            )
-            dlg.setFileMode(QFileDialog.Directory)
-            dlg.setOption(QFileDialog.ShowDirsOnly)
-            dlg.setDirectory(startdir)
-            dlg.setAttribute(Qt.WA_DeleteOnClose)
+        dlg = QFileDialog(
+            self, "Select Top Level Directory", startdir,
+            acceptMode=QFileDialog.AcceptOpen,
+            modal=True,
+        )
+        dlg.setFileMode(QFileDialog.Directory)
+        dlg.setOption(QFileDialog.ShowDirsOnly)
+        dlg.setDirectory(startdir)
+        dlg.setAttribute(Qt.WA_DeleteOnClose)
 
-            @dlg.accepted.connect
-            def on_accepted():
-                dirpath = dlg.selectedFiles()
-                if dirpath:
-                    self.setCurrentPath(dirpath[0])
-                    self.start()
-            dlg.open()
-        else:
-            dirpath = QFileDialog.getExistingDirectory(
-                self, "Select Top Level Directory", startdir
-            )
+        @dlg.accepted.connect
+        def on_accepted():
+            dirpath = dlg.selectedFiles()
             if dirpath:
-                self.setCurrentPath(dirpath)
+                self.setCurrentPath(dirpath[0])
                 self.start()
+        dlg.open()
 
     def __onRecentActivated(self, index):
         item = self.recent_cb.itemData(index)

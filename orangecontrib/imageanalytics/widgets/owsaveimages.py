@@ -296,15 +296,7 @@ class OWSaveImages(OWWidget, ConcurrentWidgetMixin):
         It is called when save as button is pressed or save button is pressed
         and path not set yet.
         """
-        dirname = self.get_save_filename()
-        if not dirname:
-            return
-        self.dirname = dirname
-        self.last_dir = os.path.split(self.dirname)[0]
-        self.bt_save.setText(f"Save as {os.path.basename(dirname)}")
-        self._update_messages()
-        self.reset_queue()
-        self.save_file()
+        self._open_save_dialog(self._initial_start_dir())
 
     @Inputs.data
     def dataset(self, data):
@@ -347,26 +339,50 @@ class OWSaveImages(OWWidget, ConcurrentWidgetMixin):
         else:
             return os.path.join(self.last_dir or self.userhome)
 
-    def get_save_filename(self):
-        """
-        Open a user dialog and returns the dicrectory path.
-        """
-        filename = self._initial_start_dir()
-        while True:
-            dlg = QFileDialog(
-                None, "Select directory to save", filename)
-            dlg.setFileMode(QFileDialog.Directory)
-            dlg.setOption(QFileDialog.ShowDirsOnly)
-            dlg.setAcceptMode(dlg.AcceptSave)
-            dlg.setOption(QFileDialog.DontConfirmOverwrite)
-            if dlg.exec() == QFileDialog.Rejected:
-                return None
+    def _open_save_dialog(self, start_dir):
+        """Open a non-blocking directory dialog for save location."""
+        dlg = QFileDialog(self, "Select directory to save", start_dir)
+        dlg.setFileMode(QFileDialog.Directory)
+        dlg.setOption(QFileDialog.ShowDirsOnly)
+        dlg.setAcceptMode(dlg.AcceptSave)
+        dlg.setOption(QFileDialog.DontConfirmOverwrite)
+        dlg.setAttribute(Qt.WA_DeleteOnClose)
+
+        @dlg.accepted.connect
+        def on_accepted():
             filename = list(dlg.selectedFiles())[0]
-            if not os.path.exists(filename) or QMessageBox.question(
-                    self, "Overwrite file?",
-                    f"Folder {os.path.split(filename)[1]} already exists.\n"
-                    "Overwrite?") == QMessageBox.Yes:
-                return filename
+            if not os.path.exists(filename):
+                self._finish_save_as(filename)
+            else:
+                self._confirm_overwrite(filename)
+        dlg.open()
+
+    def _confirm_overwrite(self, filename):
+        """Show non-blocking overwrite confirmation."""
+        msg = QMessageBox(
+            QMessageBox.Question, "Overwrite file?",
+            f"Folder {os.path.split(filename)[1]} already exists.\n"
+            "Overwrite?",
+            QMessageBox.Yes | QMessageBox.No, self,
+        )
+        msg.setAttribute(Qt.WA_DeleteOnClose)
+
+        @msg.finished.connect
+        def on_finished(_):
+            if msg.standardButton(msg.clickedButton()) == QMessageBox.Yes:
+                self._finish_save_as(filename)
+            else:
+                self._open_save_dialog(os.path.dirname(filename))
+        msg.open()
+
+    def _finish_save_as(self, dirname):
+        """Complete save-as after directory is confirmed."""
+        self.dirname = dirname
+        self.last_dir = os.path.split(self.dirname)[0]
+        self.bt_save.setText(f"Save as {os.path.basename(dirname)}")
+        self._update_messages()
+        self.reset_queue()
+        self.save_file()
 
     def clear(self):
         super().clear()
