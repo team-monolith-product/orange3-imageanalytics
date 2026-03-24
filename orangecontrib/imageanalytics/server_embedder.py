@@ -20,5 +20,5 @@ class ServerEmbedder(ServerEmbedderCommunicator):
         self.image_size = image_size
         self._image_loader = ImageLoader()
 
-    async def _encode_data_instance(self, file_path: str) -> Optional[bytes]:
+    def _encode_data_instance(self, file_path: str) -> Optional[bytes]:
         return self._image_loader.load_image_bytes(file_path, self.image_size)
