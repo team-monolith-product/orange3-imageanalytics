@@ -1,39 +1,63 @@
-Orange3 Image Analytics 
-=======================
-[![Build Status](https://travis-ci.org/biolab/orange3-imageanalytics.svg?branch=master)](https://travis-ci.org/biolab/orange3-imageanalytics)
-[![codecov](https://codecov.io/gh/biolab/orange3-imageanalytics/branch/master/graph/badge.svg)](https://codecov.io/gh/biolab/orange3-imageanalytics)
+# orange3-imageanalytics (WASM fork)
 
-Orange3 Image Analytics is an add-on for the [Orange3](http://orange.biolab.si) data mining suite. It provides extensions for importing/creating labeled image data sets and embedding them through a variety of pre-trained deep neural networks.
+Experimental fork of [orange3-imageanalytics](https://github.com/biolab/orange3-imageanalytics)
+for running Orange3 in the browser via Pyodide + PyQt6 WASM.
 
-Installation
-------------
-Install from Orange add-on installer through Options - Add-ons.
+Forked from upstream [`0.13.0`](https://github.com/biolab/orange3-imageanalytics/tree/0.13.0)
+(commit `ae36a0a`).
 
-To install the add-on from source run
+## Changes
 
-    python setup.py install
+- `widgets/owimageimport.py`: Replaced `getExistingDirectory()` with non-blocking
+  QFileDialog + open() + accepted signal.
 
-To register this add-on with Orange but keep the code in the development directory (do not copy it to 
-Python's site-packages directory) run
+- `widgets/owsaveimages.py`: Replaced blocking `get_save_filename()` loop (exec() +
+  QMessageBox.question) with callback chain: `_open_save_dialog` → `_confirm_overwrite`
+  → `_finish_save_as`.
 
-    python setup.py develop
+- `image_embedder.py`: Replaced async httpx `ServerEmbedderCommunicator` with
+  synchronous `requests.Session` calls (asyncio.run() fails in Pyodide because
+  the WebLoop is already running).
 
-You can also run
+## Known limitations
 
-    pip install -e .
+- api.garaza.io server embedders (Inception v3, VGG-16) are blocked by CORS.
+  Requires a CORS proxy or custom embedding API to use.
+- SqueezeNet: WASM NumPy-based CNN inference is slow for batch image processing.
+- Image Grid widget: Blocked by openTSNE (C extension not available in Pyodide).
 
-which is sometimes preferable as you can *pip uninstall* packages later.
+## Install (Pyodide)
 
-Usage
------
+```python
+await micropip.install(
+    "https://team-monolith-product.github.io/orange3-imageanalytics/orange3_imageanalytics-0.13.0-py3-none-any.whl"
+)
+```
 
-After the installation the widgets from this add-on are registered with Orange. To run Orange from the terminal
-use
+## Release procedure
 
-    orange-canvas
+1. Make changes on `master` and commit.
 
-or
+2. Build the wheel:
 
-    python3 -m Orange.canvas
+```bash
+python -m build --wheel
+```
 
-New widgets are in the toolbox bar under the Image Analytics section.
+3. Create a GitHub Release:
+
+```bash
+gh release create wasm-{version} dist/orange3_imageanalytics-{version}-py3-none-any.whl \
+    --title "{version}-wasm" --notes "..."
+```
+
+4. Deploy to GitHub Pages (serves the wheel with CORS):
+
+```bash
+git checkout gh-pages
+cp dist/orange3_imageanalytics-{version}-py3-none-any.whl .
+git add *.whl
+git commit -m "deploy: orange3_imageanalytics-{version}"
+git push origin gh-pages
+git checkout master
+```
